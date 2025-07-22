@@ -1,0 +1,23 @@
+{
+  "functions": {
+    "src/app/api/upload/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    },
+    "src/app/api/generate/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    },
+    "src/app/api/queue-status/route.ts": {
+      "memory": 512,
+      "maxDuration": 30
+    },
+    "src/app/api/worker/long-job/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
+  "buildCommand": "npm run build",
+  "framework": "nextjs",
+  "regions": ["iad1"]
+}

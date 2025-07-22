@@ -10,6 +10,12 @@ export function middleware(request: NextRequest) {
   }
 
   const ip = request.ip || request.headers.get('x-forwarded-for') || 'unknown';
+  
+  // Bypass rate limiting for localhost and Vercel preview deployments
+  if (ip === '::1' || ip === '127.0.0.1' || ip.startsWith('192.168.') || 
+      request.headers.get('host')?.includes('vercel.app')) {
+    return NextResponse.next();
+  }
   const now = Date.now();
   const windowMs = 10 * 60 * 1000; // 10 minutes
   const maxRequests = 3;

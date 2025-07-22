@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import path from 'path';
-import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { openaiClient, CostExceededError } from '@/lib/openai';
+import * as Sentry from '@sentry/nextjs';
 
 interface GenerateRequest {
   transcript: string;
@@ -33,10 +30,10 @@ async function loadPrompt(filename: string): Promise<string> {
   return await readFile(promptPath, 'utf-8');
 }
 
-async function generateWithPrompt(prompt: string, transcript: string): Promise<{ content: string; tokens: number }> {
+async function generateWithPrompt(prompt: string, transcript: string): Promise<{ content: string; metrics: any }> {
   const fullPrompt = `${prompt}\n\nTranscript:\n${transcript}`;
   
-  const response = await openai.chat.completions.create({
+  const { response, metrics } = await openaiClient.chatCompletion({
     model: 'gpt-4o',
     messages: [
       { 
@@ -51,7 +48,7 @@ async function generateWithPrompt(prompt: string, transcript: string): Promise<{
 
   return {
     content: response.choices[0].message.content || '',
-    tokens: response.usage?.total_tokens || 0,
+    metrics,
   };
 }
 
@@ -76,7 +73,7 @@ export async function POST(request: NextRequest) {
       loadPrompt('social-captions.md'),
     ]);
 
-    // Generate all sections
+    // Generate all sections with enhanced monitoring
     const [titleResult, summaryResult, highlightsResult, guestBioResult, socialCaptionsResult] = await Promise.all([
       generateWithPrompt(titlePrompt, transcript),
       generateWithPrompt(summaryPrompt, transcript),
@@ -85,8 +82,13 @@ export async function POST(request: NextRequest) {
       generateWithPrompt(socialCaptionsPrompt, transcript),
     ]);
 
-    totalTokens = titleResult.tokens + summaryResult.tokens + highlightsResult.tokens + 
-                  guestBioResult.tokens + socialCaptionsResult.tokens;
+    // Calculate total metrics
+    const allMetrics = [titleResult.metrics, summaryResult.metrics, highlightsResult.metrics, 
+                       guestBioResult.metrics, socialCaptionsResult.metrics];
+    
+    totalTokens = allMetrics.reduce((sum, m) => sum + m.totalTokens, 0);
+    const totalCost = allMetrics.reduce((sum, m) => sum + m.costUSD, 0);
+    const maxLatency = Math.max(...allMetrics.map(m => m.latencyMs));
 
     // Parse highlights (expecting JSON array)
     let highlights: string[] = [];
@@ -129,17 +131,45 @@ export async function POST(request: NextRequest) {
     const endTime = Date.now();
     const totalLatency = endTime - startTime;
 
-    // Estimate cost (approximate rates for GPT-4o)
-    const inputTokenRate = 0.0025 / 1000; // $0.0025 per 1K input tokens
-    const outputTokenRate = 0.01 / 1000; // $0.01 per 1K output tokens
-    const estimatedCost = (totalTokens * inputTokenRate) + (totalTokens * 0.2 * outputTokenRate);
+    // SLA monitoring - warn if exceeds 120 seconds
+    const SLA_THRESHOLD_MS = 120000; // 120 seconds
+    if (totalLatency > SLA_THRESHOLD_MS) {
+      Sentry.captureMessage(
+        `Generate API SLA exceeded: ${totalLatency}ms > ${SLA_THRESHOLD_MS}ms`,
+        'warning',
+        {
+          tags: { service: 'generate', sla: 'exceeded' },
+          extra: {
+            totalLatency,
+            totalTokens,
+            transcriptLength: transcript.length,
+          },
+        }
+      );
+    }
 
-    // Log metrics
+    // Enhanced logging with all metrics
     console.log(`Show notes generation completed:`, {
       totalLatency,
       totalTokens,
-      estimatedCost,
+      totalCost,
+      maxLatency,
       transcriptLength: transcript.length,
+      slaExceeded: totalLatency > SLA_THRESHOLD_MS,
+    });
+
+    // Log to Sentry as breadcrumb
+    Sentry.addBreadcrumb({
+      category: 'generate',
+      message: 'Show notes generation completed',
+      level: 'info',
+      data: {
+        totalLatency,
+        totalTokens,
+        totalCost,
+        transcriptLength: transcript.length,
+        slaExceeded: totalLatency > SLA_THRESHOLD_MS,
+      },
     });
 
     const response: ShowNotesResponse = {
@@ -151,7 +181,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         totalLatency,
         totalTokens,
-        cost: estimatedCost,
+        cost: totalCost,
       },
     };
 
@@ -159,6 +189,20 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Generation error:', error);
+    
+    if (error instanceof CostExceededError) {
+      Sentry.captureMessage(error.message, 'warning');
+      return NextResponse.json(
+        { error: 'Daily cost limit exceeded. Please try again tomorrow.' },
+        { status: 429 }
+      );
+    }
+
+    Sentry.captureException(error, {
+      tags: { service: 'generate' },
+      extra: { transcriptLength: transcript?.length },
+    });
+
     return NextResponse.json(
       { error: 'Failed to generate show notes' },
       { status: 500 }
