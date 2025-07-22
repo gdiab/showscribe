@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import path from 'path';
-import { openaiClient, CostExceededError } from '@/lib/openai';
+import { openaiClient, CostExceededError, CostMetrics } from '@/lib/openai';
 import * as Sentry from '@sentry/nextjs';
 
 interface GenerateRequest {
@@ -30,7 +30,7 @@ async function loadPrompt(filename: string): Promise<string> {
   return await readFile(promptPath, 'utf-8');
 }
 
-async function generateWithPrompt(prompt: string, transcript: string): Promise<{ content: string; metrics: any }> {
+async function generateWithPrompt(prompt: string, transcript: string): Promise<{ content: string; metrics: CostMetrics }> {
   const fullPrompt = `${prompt}\n\nTranscript:\n${transcript}`;
   
   const { response, metrics } = await openaiClient.chatCompletion({
@@ -53,12 +53,14 @@ async function generateWithPrompt(prompt: string, transcript: string): Promise<{
 }
 
 export async function POST(request: NextRequest) {
+  let transcript = '';
+  
   try {
     const startTime = Date.now();
     let totalTokens = 0;
     
     const body: GenerateRequest = await request.json();
-    const { transcript } = body;
+    transcript = body.transcript;
     
     if (!transcript) {
       return NextResponse.json({ error: 'No transcript provided' }, { status: 400 });
@@ -136,8 +138,8 @@ export async function POST(request: NextRequest) {
     if (totalLatency > SLA_THRESHOLD_MS) {
       Sentry.captureMessage(
         `Generate API SLA exceeded: ${totalLatency}ms > ${SLA_THRESHOLD_MS}ms`,
-        'warning',
         {
+          level: 'warning',
           tags: { service: 'generate', sla: 'exceeded' },
           extra: {
             totalLatency,
@@ -191,7 +193,7 @@ export async function POST(request: NextRequest) {
     console.error('Generation error:', error);
     
     if (error instanceof CostExceededError) {
-      Sentry.captureMessage(error.message, 'warning');
+      Sentry.captureMessage(error.message, { level: 'warning' });
       return NextResponse.json(
         { error: 'Daily cost limit exceeded. Please try again tomorrow.' },
         { status: 429 }

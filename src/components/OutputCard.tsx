@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 interface OutputCardProps {
   title: string;
-  content: string | string[];
+  content: string | string[] | { twitter: string; linkedin: string; instagram: string };
   type?: 'text' | 'list' | 'social';
 }
 
@@ -20,7 +20,7 @@ export default function OutputCard({ title, content, type = 'text' }: OutputCard
       const socialContent = content as { twitter: string; linkedin: string; instagram: string };
       textToCopy = `Twitter: ${socialContent.twitter}\n\nLinkedIn: ${socialContent.linkedin}\n\nInstagram: ${socialContent.instagram}`;
     } else {
-      textToCopy = Array.isArray(content) ? content.join('\n') : content;
+      textToCopy = Array.isArray(content) ? content.join('\n') : (typeof content === 'string' ? content : '');
     }
 
     try {
@@ -63,7 +63,7 @@ export default function OutputCard({ title, content, type = 'text' }: OutputCard
         </div>
       );
     } else {
-      return <p className="whitespace-pre-wrap">{Array.isArray(content) ? content.join('\n') : content}</p>;
+      return <p className="whitespace-pre-wrap">{Array.isArray(content) ? content.join('\n') : (typeof content === 'string' ? content : '')}</p>;
     }
   };
 

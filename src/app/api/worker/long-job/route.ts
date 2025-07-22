@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateJobStatus } from '../../queue-status/route';
+import { updateJobStatus } from '@/lib/queue';
 import { openaiClient } from '@/lib/openai';
-import { writeFile, readFile, unlink } from 'fs/promises';
+import { writeFile, unlink } from 'fs/promises';
 import path from 'path';
 import * as Sentry from '@sentry/nextjs';
 
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     await writeFile(filepath, fileBuffer);
 
     // Create file stream for OpenAI
-    const fs = require('fs');
+    const fs = await import('fs');
     const fileStream = fs.createReadStream(filepath);
 
     // Transcribe with enhanced OpenAI client

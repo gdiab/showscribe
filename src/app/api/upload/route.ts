@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile } from 'fs/promises';
 import path from 'path';
 import { openaiClient, CostExceededError } from '@/lib/openai';
-import { createJob } from '../queue-status/route';
+import { createJob } from '@/lib/queue';
 import * as Sentry from '@sentry/nextjs';
 import crypto from 'crypto';
 
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
     const filepath = path.join(process.cwd(), 'tmp', filename);
     
     // Ensure tmp directory exists
-    const fs = require('fs');
+    const fs = await import('fs');
     const tmpDir = path.join(process.cwd(), 'tmp');
     if (!fs.existsSync(tmpDir)) {
       fs.mkdirSync(tmpDir, { recursive: true });
@@ -108,14 +108,12 @@ export async function POST(request: NextRequest) {
     await writeFile(filepath, buffer);
 
     // Transcribe with enhanced OpenAI client
-    const transcriptionStartTime = Date.now();
     const { response: transcription, metrics } = await openaiClient.transcription({
       file: fs.createReadStream(filepath),
       model: 'whisper-1',
       response_format: 'json',
     });
 
-    const transcriptionEndTime = Date.now();
     const transcriptionLatency = metrics.latencyMs;
 
     // Clean up temporary file
@@ -147,7 +145,7 @@ export async function POST(request: NextRequest) {
     console.error('Upload/transcription error:', error);
     
     if (error instanceof CostExceededError) {
-      Sentry.captureMessage(error.message, 'warning');
+      Sentry.captureMessage(error.message, { level: 'warning' });
       return NextResponse.json(
         { error: 'Daily cost limit exceeded. Please try again tomorrow.' },
         { status: 429 }

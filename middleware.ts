@@ -9,7 +9,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const ip = request.ip || request.headers.get('x-forwarded-for') || 'unknown';
+  const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
   
   // Bypass rate limiting for localhost and Vercel preview deployments
   if (ip === '::1' || ip === '127.0.0.1' || ip.startsWith('192.168.') || 

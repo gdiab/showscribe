@@ -14,7 +14,7 @@ interface TokenUsage {
   total_tokens: number;
 }
 
-interface CostMetrics {
+export interface CostMetrics {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
@@ -37,6 +37,7 @@ const MODEL_COSTS = {
 
 class OpenAIClient {
   private client: OpenAI;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private redis: any = null;
 
   constructor() {
@@ -174,6 +175,7 @@ class OpenAIClient {
   }
 
   async transcription(params: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     file: any;
     model: string;
     response_format?: string;
@@ -184,7 +186,7 @@ class OpenAIClient {
     const startTime = Date.now();
     
     try {
-      const response = await this.client.audio.transcriptions.create(params);
+      const response = await this.client.audio.transcriptions.create(params as OpenAI.Audio.Transcriptions.TranscriptionCreateParamsNonStreaming);
       const endTime = Date.now();
       
       // Whisper pricing is per minute, but we'll estimate based on file size
