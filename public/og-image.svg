@@ -1,0 +1,6 @@
+<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#0f172a"/>
+  <text x="600" y="280" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="80" font-weight="bold">ShowScribe</text>
+  <text x="600" y="360" text-anchor="middle" fill="#64748b" font-family="Arial, sans-serif" font-size="32">AI-Powered Podcast Show Notes Generator</text>
+  <text x="600" y="420" text-anchor="middle" fill="#64748b" font-family="Arial, sans-serif" font-size="24">Transform your podcast episodes into professional content</text>
+</svg>
