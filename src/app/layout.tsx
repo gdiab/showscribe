@@ -13,6 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://showscribe.vercel.app'),
   title: 'ShowScribe - AI-Powered Podcast Show Notes Generator',
   description:
     'Transform your podcast episodes into professional show notes, summaries, highlights, guest bios, and social media content using AI. Upload audio and get comprehensive content in minutes.',
