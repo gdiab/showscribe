@@ -19,6 +19,11 @@ export const metadata: Metadata = {
     'Transform your podcast episodes into professional show notes, summaries, highlights, guest bios, and social media content using AI. Upload audio and get comprehensive content in minutes.',
   keywords: ['podcast', 'show notes', 'AI', 'transcription', 'content generation', 'social media'],
   authors: [{ name: 'ShowScribe' }],
+  icons: {
+    icon: '/logos/icononly_transparent.png',
+    shortcut: '/logos/icononly_transparent.png',
+    apple: '/logos/icononly_transparent.png',
+  },
   openGraph: {
     title: 'ShowScribe - AI-Powered Podcast Show Notes Generator',
     description:
