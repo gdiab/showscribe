@@ -7,14 +7,21 @@ import * as Sentry from '@sentry/nextjs';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
+  console.log('=== UPLOAD API START ===');
   let file: File | null = null;
   let filepath: string | null = null;
 
   try {
+    console.log('1. Starting upload processing');
     const startTime = Date.now();
 
+    console.log('2. Parsing form data');
     const data = await request.formData();
     file = data.get('file') as unknown as File;
+    console.log(
+      '3. Got file:',
+      file ? { name: file.name, size: file.size, type: file.type } : 'null'
+    );
 
     if (!file) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
@@ -101,23 +108,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('4. Saving file temporarily');
     // Save file temporarily (use /tmp for Vercel compatibility)
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const filename = `${Date.now()}-${file.name}`;
     filepath = path.join('/tmp', filename);
+    console.log('5. File path:', filepath);
 
     // Import fs module
     const fs = await import('fs');
 
+    console.log('6. Writing file to disk');
     await writeFile(filepath, buffer);
+    console.log('7. File written successfully');
 
+    console.log('8. Starting OpenAI transcription');
     // Transcribe with enhanced OpenAI client
     const { response: transcription, metrics } = await openaiClient.transcription({
       file: fs.createReadStream(filepath),
       model: 'whisper-1',
       response_format: 'json',
     });
+    console.log('9. Transcription completed, length:', transcription.text.length);
 
     const transcriptionLatency = metrics.latencyMs;
 
@@ -146,14 +159,20 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Upload/transcription error:', error);
+    console.error('=== UPLOAD ERROR ===');
+    console.error('Error type:', error?.constructor?.name);
+    console.error('Error message:', (error as Error)?.message);
+    console.error('Error stack:', (error as Error)?.stack);
+    console.error('Full error object:', error);
 
     // Clean up temporary file on error
     if (filepath) {
       try {
+        console.log('Cleaning up temporary file:', filepath);
         const fs = await import('fs');
         if (fs.existsSync(filepath)) {
           fs.unlinkSync(filepath);
+          console.log('Temporary file cleaned up successfully');
         }
       } catch (cleanupError) {
         console.warn('Failed to clean up temporary file:', cleanupError);
