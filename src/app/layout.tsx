@@ -22,10 +22,10 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: '/favicon.ico', sizes: 'any' },
-      { url: '/logos/icononly_transparent.png', sizes: '32x32', type: 'image/png' },
+      { url: '/logos/icononly_nobuffer.png', sizes: '32x32', type: 'image/png' },
     ],
     shortcut: '/favicon.ico',
-    apple: '/logos/icononly_transparent.png',
+    apple: '/logos/icononly_nobuffer.png',
   },
   openGraph: {
     title: 'ShowScribe - AI-Powered Podcast Show Notes Generator',
