@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Uploader from '@/components/Uploader';
 import Spinner from '@/components/Spinner';
 import OutputCard from '@/components/OutputCard';
@@ -95,13 +96,21 @@ export default function Home() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <header className="flex justify-between items-center mb-12">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
-              ShowScribe
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">
-              AI-powered podcast show notes generator
-            </p>
+          <div className="flex items-center gap-4">
+            <Image
+              src="/logos/icononly_transparent_nobuffer.png"
+              alt="ShowScribe Icon"
+              width={64}
+              height={64}
+              className="h-16 w-auto"
+            />
+            <Image
+              src="/logos/textonly_nobuffer.png"
+              alt="ShowScribe"
+              width={300}
+              height={48}
+              className="h-8 w-auto"
+            />
           </div>
           <ThemeToggle />
         </header>
@@ -143,11 +152,11 @@ export default function Home() {
                 <OutputCard title="Key Highlights" content={result.highlights} type="list" />
                 <OutputCard title="Guest Bio" content={result.guestBio} />
               </div>
-              
-              <OutputCard 
-                title="Social Media Captions" 
-                content={result.socialCaptions} 
-                type="social" 
+
+              <OutputCard
+                title="Social Media Captions"
+                content={result.socialCaptions}
+                type="social"
               />
 
               <DownloadButton
@@ -169,9 +178,8 @@ export default function Home() {
 
               {/* Metadata */}
               <div className="text-center text-sm text-gray-500 dark:text-gray-400 mt-4">
-                Generated in {(result.metadata.totalLatency / 1000).toFixed(1)}s • 
-                {result.metadata.totalTokens} tokens • 
-                ~${result.metadata.cost.toFixed(4)}
+                Generated in {(result.metadata.totalLatency / 1000).toFixed(1)}s •
+                {result.metadata.totalTokens} tokens • ~${result.metadata.cost.toFixed(4)}
               </div>
             </div>
           )}
@@ -191,7 +199,12 @@ export default function Home() {
             >
               <span>Share Feedback</span>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                />
               </svg>
             </a>
           </div>

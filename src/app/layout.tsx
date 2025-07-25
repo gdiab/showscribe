@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     siteName: 'ShowScribe',
     images: [
       {
-        url: '/og-image.svg',
+        url: '/og-logo.png',
         width: 1200,
         height: 630,
         alt: 'ShowScribe - AI-Powered Podcast Show Notes Generator',
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     title: 'ShowScribe - AI-Powered Podcast Show Notes Generator',
     description:
       'Transform your podcast episodes into professional show notes using AI. Upload audio and get comprehensive content in minutes.',
-    images: ['/og-image.svg'],
+    images: ['/og-logo.png'],
   },
   robots: {
     index: true,

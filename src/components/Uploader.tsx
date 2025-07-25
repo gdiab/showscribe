@@ -13,11 +13,14 @@ export default function Uploader({ onUpload, onTranscriptSubmit, isProcessing }:
   const [transcript, setTranscript] = useState('');
   const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('upload');
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      onUpload(acceptedFiles[0]);
-    }
-  }, [onUpload]);
+  const onDrop = useCallback(
+    (acceptedFiles: File[]) => {
+      if (acceptedFiles.length > 0) {
+        onUpload(acceptedFiles[0]);
+      }
+    },
+    [onUpload]
+  );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -26,7 +29,7 @@ export default function Uploader({ onUpload, onTranscriptSubmit, isProcessing }:
       'audio/wav': ['.wav'],
       'audio/x-wav': ['.wav'],
     },
-    maxSize: 100 * 1024 * 1024, // 100MB
+    maxSize: 25 * 1024 * 1024, // 25MB (OpenAI Whisper limit)
     multiple: false,
     disabled: isProcessing,
   });
@@ -96,7 +99,7 @@ export default function Uploader({ onUpload, onTranscriptSubmit, isProcessing }:
                 or <span className="text-blue-600 dark:text-blue-400">browse files</span>
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                Supports MP3, WAV (max 100MB)
+                Supports MP3, WAV (max 25MB)
               </p>
             </div>
           </div>
