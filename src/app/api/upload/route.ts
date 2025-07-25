@@ -2,147 +2,92 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile } from 'fs/promises';
 import path from 'path';
 import { openaiClient, CostExceededError } from '@/lib/openai';
-import { createJob } from '@/lib/queue';
 import * as Sentry from '@sentry/nextjs';
-import crypto from 'crypto';
+import { del } from '@vercel/blob';
 
 export async function POST(request: NextRequest) {
-  console.log('=== UPLOAD API START ===');
-  let file: File | null = null;
+  console.log('=== BLOB UPLOAD API START ===');
+  let blobUrl: string | null = null;
   let filepath: string | null = null;
 
   try {
-    console.log('1. Starting upload processing');
+    console.log('1. Starting blob processing');
     const startTime = Date.now();
 
-    console.log('2. Parsing form data');
-    const data = await request.formData();
-    file = data.get('file') as unknown as File;
-    console.log(
-      '3. Got file:',
-      file ? { name: file.name, size: file.size, type: file.type } : 'null'
-    );
+    // Parse JSON body to get blob URL
+    console.log('2. Parsing JSON body');
+    const { blobUrl: receivedBlobUrl } = await request.json();
+    blobUrl = receivedBlobUrl;
 
-    if (!file) {
-      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+    if (!blobUrl) {
+      return NextResponse.json({ error: 'No blob URL provided' }, { status: 400 });
     }
+
+    console.log('3. Got blob URL:', blobUrl);
+
+    // Download file from blob URL
+    console.log('4. Downloading file from blob');
+    const blobResponse = await fetch(blobUrl);
+    if (!blobResponse.ok) {
+      throw new Error(`Failed to download blob: ${blobResponse.status}`);
+    }
+
+    const blobBuffer = await blobResponse.arrayBuffer();
+    const fileSize = blobBuffer.byteLength;
+    console.log('5. Downloaded file, size:', fileSize);
+
+    // Get filename from URL or generate one
+    const urlParts = blobUrl.split('/');
+    const originalFilename = urlParts[urlParts.length - 1] || 'audio-file';
+    const filename = `${Date.now()}-${originalFilename}`;
+    filepath = path.join('/tmp', filename);
+    console.log('6. File path:', filepath);
+
+    // Write to temporary file
+    console.log('7. Writing file to disk');
+    await writeFile(filepath, Buffer.from(blobBuffer));
+    console.log('8. File written successfully');
 
     // Validate file size (25MB limit - OpenAI Whisper constraint)
     const maxSize = 25 * 1024 * 1024; // 25MB
-    if (file.size > maxSize) {
+    if (fileSize > maxSize) {
+      // TODO: Add server-side compression here
       return NextResponse.json({ error: 'File too large. Maximum size is 25MB' }, { status: 400 });
     }
 
-    // Check for large files (>20MB) - queue them
-    const queueThreshold = 20 * 1024 * 1024; // 20MB
-
-    if (file.size > queueThreshold) {
-      // Generate queue ID and queue the job
-      const queueId = crypto.randomUUID();
-      createJob(queueId);
-
-      // Convert file to base64 for queuing
-      const bytes = await file.arrayBuffer();
-      const fileData = Buffer.from(bytes).toString('base64');
-
-      // Queue job using QStash if available, otherwise process immediately
-      if (process.env.UPSTASH_QSTASH_URL && process.env.UPSTASH_QSTASH_TOKEN) {
-        try {
-          const qstashUrl = `${process.env.UPSTASH_QSTASH_URL}/v2/publish/${encodeURIComponent(process.env.VERCEL_URL || 'http://localhost:3000')}/api/worker/long-job`;
-
-          console.log('QStash request:', {
-            url: qstashUrl,
-            hasToken: !!process.env.UPSTASH_QSTASH_TOKEN,
-            tokenPrefix: process.env.UPSTASH_QSTASH_TOKEN?.substring(0, 10) + '...',
-          });
-
-          const response = await fetch(qstashUrl, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${process.env.UPSTASH_QSTASH_TOKEN}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              queueId,
-              fileData,
-              filename: file.name,
-            }),
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('QStash error:', {
-              status: response.status,
-              statusText: response.statusText,
-              body: errorText,
-            });
-            throw new Error(`QStash failed: ${response.status} ${errorText}`);
-          }
-
-          return NextResponse.json(
-            {
-              queueId,
-              message:
-                'File queued for processing. Use /api/queue-status?id=' +
-                queueId +
-                ' to check status.',
-            },
-            { status: 202 }
-          );
-        } catch (queueError) {
-          console.warn('QStash queuing failed, processing immediately:', queueError);
-          // Fall through to immediate processing
-        }
-      }
-
-      // If queuing fails or isn't configured, process immediately
-      console.log('Processing large file immediately (QStash not available)');
-    }
-
-    // Validate file type
-    const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/x-wav'];
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        { error: 'Invalid file type. Only MP3 and WAV files are allowed' },
-        { status: 400 }
-      );
-    }
-
-    console.log('4. Saving file temporarily');
-    // Save file temporarily (use /tmp for Vercel compatibility)
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const filename = `${Date.now()}-${file.name}`;
-    filepath = path.join('/tmp', filename);
-    console.log('5. File path:', filepath);
-
-    // Import fs module
+    console.log('9. Starting OpenAI transcription');
+    // Import fs module for createReadStream
     const fs = await import('fs');
 
-    console.log('6. Writing file to disk');
-    await writeFile(filepath, buffer);
-    console.log('7. File written successfully');
-
-    console.log('8. Starting OpenAI transcription');
     // Transcribe with enhanced OpenAI client
     const { response: transcription, metrics } = await openaiClient.transcription({
       file: fs.createReadStream(filepath),
       model: 'whisper-1',
       response_format: 'json',
     });
-    console.log('9. Transcription completed, length:', transcription.text.length);
+    console.log('10. Transcription completed, length:', transcription.text.length);
 
     const transcriptionLatency = metrics.latencyMs;
 
     // Clean up temporary file
     fs.unlinkSync(filepath);
+    filepath = null;
+
+    // Clean up blob
+    console.log('11. Cleaning up blob');
+    try {
+      await del(blobUrl);
+      console.log('12. Blob cleaned up successfully');
+    } catch (blobError) {
+      console.warn('Failed to clean up blob:', blobError);
+    }
 
     const endTime = Date.now();
     const totalLatency = endTime - startTime;
 
     // Log metrics
     console.log(`Transcription completed:`, {
-      fileSize: file.size,
+      fileSize,
       transcriptionLatency,
       totalLatency,
       transcriptionLength: transcription.text.length,
@@ -151,7 +96,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       transcript: transcription.text,
       metadata: {
-        fileSize: file.size,
+        fileSize,
         transcriptionLatency,
         totalLatency,
         transcriptionLength: transcription.text.length,
@@ -159,7 +104,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('=== UPLOAD ERROR ===');
+    console.error('=== BLOB UPLOAD ERROR ===');
     console.error('Error type:', error?.constructor?.name);
     console.error('Error message:', (error as Error)?.message);
     console.error('Error stack:', (error as Error)?.stack);
@@ -179,6 +124,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Clean up blob on error
+    if (blobUrl) {
+      try {
+        console.log('Cleaning up blob on error:', blobUrl);
+        await del(blobUrl);
+        console.log('Blob cleaned up successfully');
+      } catch (blobError) {
+        console.warn('Failed to clean up blob:', blobError);
+      }
+    }
+
     if (error instanceof CostExceededError) {
       Sentry.captureMessage(error.message, { level: 'warning' });
       return NextResponse.json(
@@ -188,7 +144,7 @@ export async function POST(request: NextRequest) {
     }
 
     Sentry.captureException(error, {
-      tags: { service: 'upload', fileSize: file?.size },
+      tags: { service: 'blob-upload', blobUrl },
     });
 
     return NextResponse.json({ error: 'Failed to process audio file' }, { status: 500 });

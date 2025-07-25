@@ -2,9 +2,10 @@
 
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
+import { upload } from '@vercel/blob/client';
 
 interface UploaderProps {
-  onUpload: (file: File) => void;
+  onUpload: (blobUrl: string) => void;
   onTranscriptSubmit: (transcript: string) => void;
   isProcessing: boolean;
 }
@@ -12,11 +13,35 @@ interface UploaderProps {
 export default function Uploader({ onUpload, onTranscriptSubmit, isProcessing }: UploaderProps) {
   const [transcript, setTranscript] = useState('');
   const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('upload');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
 
   const onDrop = useCallback(
-    (acceptedFiles: File[]) => {
+    async (acceptedFiles: File[]) => {
       if (acceptedFiles.length > 0) {
-        onUpload(acceptedFiles[0]);
+        const file = acceptedFiles[0];
+
+        setIsUploading(true);
+        setUploadStatus(`Uploading ${file.name}...`);
+
+        try {
+          const blob = await upload(file.name, file, {
+            access: 'public',
+            handleUploadUrl: '/api/blob-upload',
+          });
+
+          setUploadStatus(`Upload complete! Processing audio...`);
+          setTimeout(() => setUploadStatus(null), 2000);
+
+          // Pass blob URL to parent component
+          onUpload(blob.url);
+        } catch (error) {
+          console.error('Upload failed:', error);
+          setUploadStatus('Upload failed. Please try again.');
+          setTimeout(() => setUploadStatus(null), 5000);
+        } finally {
+          setIsUploading(false);
+        }
       }
     },
     [onUpload]
@@ -29,9 +54,8 @@ export default function Uploader({ onUpload, onTranscriptSubmit, isProcessing }:
       'audio/wav': ['.wav'],
       'audio/x-wav': ['.wav'],
     },
-    maxSize: 25 * 1024 * 1024, // 25MB (OpenAI Whisper limit)
     multiple: false,
-    disabled: isProcessing,
+    disabled: isProcessing || isUploading,
   });
 
   const handleTranscriptSubmit = () => {
@@ -74,7 +98,7 @@ export default function Uploader({ onUpload, onTranscriptSubmit, isProcessing }:
             isDragActive
               ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
               : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-          } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+          } ${isProcessing || isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <input {...getInputProps()} />
           <div className="flex flex-col items-center space-y-4">
@@ -93,14 +117,26 @@ export default function Uploader({ onUpload, onTranscriptSubmit, isProcessing }:
             </svg>
             <div>
               <p className="text-xl font-medium text-gray-900 dark:text-white">
-                {isDragActive ? 'Drop your audio file here' : 'Drop your audio file here'}
+                {isUploading
+                  ? 'Uploading audio...'
+                  : isDragActive
+                    ? 'Drop your audio file here'
+                    : 'Drop your audio file here'}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                or <span className="text-blue-600 dark:text-blue-400">browse files</span>
+                {isUploading ? '' : 'or '}
+                <span className="text-blue-600 dark:text-blue-400">
+                  {isUploading ? '' : 'browse files'}
+                </span>
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                Supports MP3, WAV (max 25MB)
+                Supports MP3, WAV (large files supported)
               </p>
+              {uploadStatus && (
+                <p className="text-sm text-green-600 dark:text-green-400 mt-2 font-medium">
+                  {uploadStatus}
+                </p>
+              )}
             </div>
           </div>
         </div>

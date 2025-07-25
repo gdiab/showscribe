@@ -30,18 +30,18 @@ export default function Home() {
   const [result, setResult] = useState<ShowNotesResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = async (blobUrl: string) => {
     setIsProcessing(true);
     setError(null);
 
     try {
-      // Upload and transcribe
-      const formData = new FormData();
-      formData.append('file', file);
-
+      // Send blob URL for processing
       const uploadResponse = await fetch('/api/upload', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ blobUrl }),
       });
 
       if (!uploadResponse.ok) {
