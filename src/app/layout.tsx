@@ -20,11 +20,8 @@ export const metadata: Metadata = {
   keywords: ['podcast', 'show notes', 'AI', 'transcription', 'content generation', 'social media'],
   authors: [{ name: 'ShowScribe' }],
   icons: {
-    icon: [
-      { url: '/favicon.ico', sizes: 'any' },
-      { url: '/logos/icononly_nobuffer.png', sizes: '32x32', type: 'image/png' },
-    ],
-    shortcut: '/favicon.ico',
+    icon: '/logos/icononly_nobuffer.png',
+    shortcut: '/logos/icononly_nobuffer.png',
     apple: '/logos/icononly_nobuffer.png',
   },
   openGraph: {
