@@ -8,6 +8,7 @@ import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
   let file: File | null = null;
+  let filepath: string | null = null;
 
   try {
     const startTime = Date.now();
@@ -100,18 +101,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Save file temporarily
+    // Save file temporarily (use /tmp for Vercel compatibility)
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const filename = `${Date.now()}-${file.name}`;
-    const filepath = path.join(process.cwd(), 'tmp', filename);
+    filepath = path.join('/tmp', filename);
 
-    // Ensure tmp directory exists
+    // Import fs module
     const fs = await import('fs');
-    const tmpDir = path.join(process.cwd(), 'tmp');
-    if (!fs.existsSync(tmpDir)) {
-      fs.mkdirSync(tmpDir, { recursive: true });
-    }
 
     await writeFile(filepath, buffer);
 
@@ -150,6 +147,18 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Upload/transcription error:', error);
+
+    // Clean up temporary file on error
+    if (filepath) {
+      try {
+        const fs = await import('fs');
+        if (fs.existsSync(filepath)) {
+          fs.unlinkSync(filepath);
+        }
+      } catch (cleanupError) {
+        console.warn('Failed to clean up temporary file:', cleanupError);
+      }
+    }
 
     if (error instanceof CostExceededError) {
       Sentry.captureMessage(error.message, { level: 'warning' });
