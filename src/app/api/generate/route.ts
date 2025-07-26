@@ -30,17 +30,21 @@ async function loadPrompt(filename: string): Promise<string> {
   return await readFile(promptPath, 'utf-8');
 }
 
-async function generateWithPrompt(prompt: string, transcript: string): Promise<{ content: string; metrics: CostMetrics }> {
+async function generateWithPrompt(
+  prompt: string,
+  transcript: string
+): Promise<{ content: string; metrics: CostMetrics }> {
   const fullPrompt = `${prompt}\n\nTranscript:\n${transcript}`;
-  
+
   const { response, metrics } = await openaiClient.chatCompletion({
     model: 'gpt-4o',
     messages: [
-      { 
-        role: 'system', 
-        content: 'You are an expert at creating engaging podcast show notes and social media content. When asked to return JSON, return only valid JSON without markdown formatting or code blocks.' 
+      {
+        role: 'system',
+        content:
+          'You are an expert at creating engaging podcast show notes and social media content. When asked to return JSON, return only valid JSON without markdown formatting or code blocks.',
       },
-      { role: 'user', content: fullPrompt }
+      { role: 'user', content: fullPrompt },
     ],
     temperature: 0.7,
     max_tokens: 1000,
@@ -54,56 +58,56 @@ async function generateWithPrompt(prompt: string, transcript: string): Promise<{
 
 export async function POST(request: NextRequest) {
   let transcript = '';
-  
+
   try {
     const startTime = Date.now();
     let totalTokens = 0;
-    
+
     const body: GenerateRequest = await request.json();
     transcript = body.transcript;
-    
+
     if (!transcript) {
       return NextResponse.json({ error: 'No transcript provided' }, { status: 400 });
     }
 
-    // Load prompt templates
-    const [titlePrompt, summaryPrompt, highlightsPrompt, guestBioPrompt, socialCaptionsPrompt] = await Promise.all([
-      loadPrompt('title.md'),
-      loadPrompt('summary.md'),
-      loadPrompt('highlights.md'),
-      loadPrompt('guest-bio.md'),
-      loadPrompt('social-captions.md'),
-    ]);
+    // Load prompt templates for two-stage generation
+    const [condensedSummaryPrompt, lightweightSectionsPrompt, highlightsPrompt] = await Promise.all(
+      [
+        loadPrompt('condensed-summary.md'),
+        loadPrompt('lightweight-sections.md'),
+        loadPrompt('highlights.md'),
+      ]
+    );
 
-    // Generate all sections with enhanced monitoring
-    const [titleResult, summaryResult, highlightsResult, guestBioResult, socialCaptionsResult] = await Promise.all([
-      generateWithPrompt(titlePrompt, transcript),
-      generateWithPrompt(summaryPrompt, transcript),
-      generateWithPrompt(highlightsPrompt, transcript),
-      generateWithPrompt(guestBioPrompt, transcript),
-      generateWithPrompt(socialCaptionsPrompt, transcript),
-    ]);
+    // STAGE 1: Generate condensed summary from full transcript
+    console.log('Stage 1: Generating condensed summary...');
+    const condensedSummaryResult = await generateWithPrompt(condensedSummaryPrompt, transcript);
 
-    // Calculate total metrics
-    const allMetrics = [titleResult.metrics, summaryResult.metrics, highlightsResult.metrics, 
-                       guestBioResult.metrics, socialCaptionsResult.metrics];
-    
+    // STAGE 2A: Generate lightweight sections from condensed summary
+    console.log('Stage 2A: Generating lightweight sections from summary...');
+    const lightweightSectionsResult = await generateWithPrompt(
+      lightweightSectionsPrompt,
+      condensedSummaryResult.content
+    );
+
+    // STAGE 2B: Generate highlights from full transcript
+    console.log('Stage 2B: Generating highlights from full transcript...');
+    const highlightsResult = await generateWithPrompt(highlightsPrompt, transcript);
+
+    // Calculate total metrics from three calls
+    const allMetrics = [
+      condensedSummaryResult.metrics,
+      lightweightSectionsResult.metrics,
+      highlightsResult.metrics,
+    ];
+
     totalTokens = allMetrics.reduce((sum, m) => sum + m.totalTokens, 0);
     const totalCost = allMetrics.reduce((sum, m) => sum + m.costUSD, 0);
-    const maxLatency = Math.max(...allMetrics.map(m => m.latencyMs));
+    const maxLatency = Math.max(...allMetrics.map((m) => m.latencyMs));
 
-    // Parse highlights (expecting JSON array)
-    let highlights: string[] = [];
-    try {
-      highlights = JSON.parse(highlightsResult.content);
-    } catch {
-      // Fallback: split by bullet points or newlines
-      highlights = highlightsResult.content.split('\n')
-        .filter((line: string) => line.trim().startsWith('-') || line.trim().startsWith('•'))
-        .map((line: string) => line.trim().replace(/^[-•]\s*/, ''));
-    }
-
-    // Parse social captions (expecting JSON object)
+    // Parse lightweight sections (expecting JSON object with title, guestBio, socialCaptions)
+    let title = '';
+    let guestBio = '';
     let socialCaptions = {
       twitter: '',
       linkedin: '',
@@ -112,22 +116,34 @@ export async function POST(request: NextRequest) {
 
     try {
       // Clean up the content by removing markdown code blocks
-      const cleanContent = socialCaptionsResult.content
+      const cleanContent = lightweightSectionsResult.content
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
         .trim();
-      
-      socialCaptions = JSON.parse(cleanContent);
+
+      const parsedSections = JSON.parse(cleanContent);
+      title = parsedSections.title || '';
+      guestBio = parsedSections.guestBio || '';
+      socialCaptions = parsedSections.socialCaptions || socialCaptions;
     } catch (error) {
-      console.error('Failed to parse social captions:', error);
-      console.log('Raw content:', socialCaptionsResult.content);
-      
-      // Fallback: use the raw content for all platforms
-      socialCaptions = {
-        twitter: socialCaptionsResult.content,
-        linkedin: socialCaptionsResult.content,
-        instagram: socialCaptionsResult.content,
-      };
+      console.error('Failed to parse lightweight sections:', error);
+      console.log('Raw content:', lightweightSectionsResult.content);
+
+      // Fallback: extract what we can from the raw content
+      title = 'Generated Show Notes';
+      guestBio = lightweightSectionsResult.content.substring(0, 200) + '...';
+    }
+
+    // Parse highlights (expecting JSON array)
+    let highlights: string[] = [];
+    try {
+      highlights = JSON.parse(highlightsResult.content);
+    } catch {
+      // Fallback: split by bullet points or newlines
+      highlights = highlightsResult.content
+        .split('\n')
+        .filter((line: string) => line.trim().startsWith('-') || line.trim().startsWith('•'))
+        .map((line: string) => line.trim().replace(/^[-•]\s*/, ''));
     }
 
     const endTime = Date.now();
@@ -175,10 +191,10 @@ export async function POST(request: NextRequest) {
     });
 
     const response: ShowNotesResponse = {
-      title: titleResult.content.trim(),
-      summary: summaryResult.content.trim(),
+      title: title.trim(),
+      summary: condensedSummaryResult.content.trim(),
       highlights,
-      guestBio: guestBioResult.content.trim(),
+      guestBio: guestBio.trim(),
       socialCaptions,
       metadata: {
         totalLatency,
@@ -188,10 +204,9 @@ export async function POST(request: NextRequest) {
     };
 
     return NextResponse.json(response);
-
   } catch (error) {
     console.error('Generation error:', error);
-    
+
     if (error instanceof CostExceededError) {
       Sentry.captureMessage(error.message, { level: 'warning' });
       return NextResponse.json(
@@ -205,9 +220,6 @@ export async function POST(request: NextRequest) {
       extra: { transcriptLength: transcript?.length },
     });
 
-    return NextResponse.json(
-      { error: 'Failed to generate show notes' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to generate show notes' }, { status: 500 });
   }
 }

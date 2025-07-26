@@ -24,7 +24,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-dropzone": "^14.3.8",
-    "vercel": "^44.5.5"
+    "vercel": "^44.6.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
