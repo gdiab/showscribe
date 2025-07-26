@@ -4,11 +4,6 @@ import path from 'path';
 import { openaiClient, CostExceededError } from '@/lib/openai';
 import * as Sentry from '@sentry/nextjs';
 import { del } from '@vercel/blob';
-import {
-  compressAudio,
-  shouldCompressFile,
-  isCompressionAvailable,
-} from '@/lib/audio-compression-server';
 
 export async function POST(request: NextRequest) {
   console.log('=== BLOB UPLOAD API START ===');
@@ -53,54 +48,12 @@ export async function POST(request: NextRequest) {
     await writeFile(filepath, Buffer.from(blobBuffer));
     console.log('8. File written successfully');
 
-    // Check if compression is needed and available
-    let finalFilePath = filepath;
-    let finalFileSize = fileSize;
-    let compressionInfo = null;
-
-    if (shouldCompressFile(filepath, fileSize)) {
-      if (isCompressionAvailable()) {
-        try {
-          console.log('8.1. Starting audio compression...');
-          const compressionResult = await compressAudio(filepath);
-
-          // Use compressed file for transcription
-          finalFilePath = compressionResult.outputPath;
-          finalFileSize = compressionResult.compressedSize;
-          compressionInfo = {
-            originalSize: compressionResult.originalSize,
-            compressedSize: compressionResult.compressedSize,
-            compressionRatio: compressionResult.compressionRatio,
-          };
-
-          console.log(
-            `8.2. Compression successful: ${(compressionResult.originalSize / 1024 / 1024).toFixed(2)}MB -> ${(compressionResult.compressedSize / 1024 / 1024).toFixed(2)}MB`
-          );
-        } catch (compressionError) {
-          console.error('8.3. Compression failed, using original file:', compressionError);
-          // Continue with original file if compression fails
-        }
-      } else {
-        console.warn('8.4. Compression needed but FFmpeg not available in this environment');
-        // Check if file is too large without compression
-        const maxSize = 25 * 1024 * 1024; // 25MB
-        if (fileSize > maxSize) {
-          return NextResponse.json(
-            {
-              error: `File too large (${(fileSize / 1024 / 1024).toFixed(2)}MB) and compression not available. Maximum: 25MB. Please compress the file manually or use a smaller file.`,
-            },
-            { status: 400 }
-          );
-        }
-      }
-    }
-
-    // Validate final file size (25MB limit - OpenAI Whisper constraint)
+    // Validate file size (25MB limit - OpenAI Whisper constraint)
     const maxSize = 25 * 1024 * 1024; // 25MB
-    if (finalFileSize > maxSize) {
+    if (fileSize > maxSize) {
       return NextResponse.json(
         {
-          error: `File too large after processing. Final size: ${(finalFileSize / 1024 / 1024).toFixed(2)}MB. Maximum: 25MB`,
+          error: `File too large: ${(fileSize / 1024 / 1024).toFixed(2)}MB. Maximum: 25MB. Please compress the file before uploading.`,
         },
         { status: 400 }
       );
@@ -112,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     // Transcribe with enhanced OpenAI client
     const { response: transcription, metrics } = await openaiClient.transcription({
-      file: fs.createReadStream(finalFilePath),
+      file: fs.createReadStream(filepath),
       model: 'whisper-1',
       response_format: 'json',
     });
@@ -122,9 +75,6 @@ export async function POST(request: NextRequest) {
 
     // Clean up temporary files
     fs.unlinkSync(filepath);
-    if (finalFilePath !== filepath && fs.existsSync(finalFilePath)) {
-      fs.unlinkSync(finalFilePath);
-    }
     filepath = null;
 
     // Clean up blob
@@ -151,12 +101,10 @@ export async function POST(request: NextRequest) {
       transcript: transcription.text,
       metadata: {
         fileSize,
-        finalFileSize,
         transcriptionLatency,
         totalLatency,
         transcriptionLength: transcription.text.length,
         cost: metrics.costUSD,
-        compression: compressionInfo,
       },
     });
   } catch (error) {
@@ -173,13 +121,7 @@ export async function POST(request: NextRequest) {
         const fs = await import('fs');
         if (fs.existsSync(filepath)) {
           fs.unlinkSync(filepath);
-          console.log('Original temporary file cleaned up successfully');
-        }
-        // Also clean up compressed file if it exists
-        const compressedPath = filepath.replace(/\.[^/.]+$/, '-compressed.mp3');
-        if (fs.existsSync(compressedPath)) {
-          fs.unlinkSync(compressedPath);
-          console.log('Compressed temporary file cleaned up successfully');
+          console.log('Temporary file cleaned up successfully');
         }
       } catch (cleanupError) {
         console.warn('Failed to clean up temporary files:', cleanupError);

@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { upload } from '@vercel/blob/client';
+import { useAudioCompression } from '@/hooks/useAudioCompression';
 
 interface UploaderProps {
   onUpload: (blobUrl: string) => void;
@@ -16,15 +17,41 @@ export default function Uploader({ onUpload, onTranscriptSubmit, isProcessing }:
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
 
+  const { compressAudio, shouldCompress, isCompressing, progress } = useAudioCompression();
+
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
       if (acceptedFiles.length > 0) {
-        const file = acceptedFiles[0];
+        let file = acceptedFiles[0];
 
         setIsUploading(true);
-        setUploadStatus(`Uploading ${file.name}...`);
 
         try {
+          // Check if compression is needed
+          if (shouldCompress(file)) {
+            setUploadStatus(
+              `File is ${(file.size / 1024 / 1024).toFixed(1)}MB. Compressing for faster upload...`
+            );
+
+            try {
+              const result = await compressAudio(file);
+              file = result.compressedFile;
+              setUploadStatus(
+                `Compressed from ${(result.originalSize / 1024 / 1024).toFixed(1)}MB to ${(result.compressedSize / 1024 / 1024).toFixed(1)}MB. Uploading...`
+              );
+            } catch (compressionError) {
+              console.error('Compression failed:', compressionError);
+              setUploadStatus(
+                'Compression failed. Please try a smaller file or compress manually.'
+              );
+              setTimeout(() => setUploadStatus(null), 5000);
+              setIsUploading(false);
+              return;
+            }
+          } else {
+            setUploadStatus(`Uploading ${file.name}...`);
+          }
+
           const blob = await upload(file.name, file, {
             access: 'public',
             handleUploadUrl: '/api/blob-upload',
@@ -44,7 +71,7 @@ export default function Uploader({ onUpload, onTranscriptSubmit, isProcessing }:
         }
       }
     },
-    [onUpload]
+    [onUpload, compressAudio, shouldCompress]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -55,7 +82,7 @@ export default function Uploader({ onUpload, onTranscriptSubmit, isProcessing }:
       'audio/x-wav': ['.wav'],
     },
     multiple: false,
-    disabled: isProcessing || isUploading,
+    disabled: isProcessing || isUploading || isCompressing,
   });
 
   const handleTranscriptSubmit = () => {
@@ -98,7 +125,7 @@ export default function Uploader({ onUpload, onTranscriptSubmit, isProcessing }:
             isDragActive
               ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
               : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-          } ${isProcessing || isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          } ${isProcessing || isUploading || isCompressing ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <input {...getInputProps()} />
           <div className="flex flex-col items-center space-y-4">
@@ -117,22 +144,44 @@ export default function Uploader({ onUpload, onTranscriptSubmit, isProcessing }:
             </svg>
             <div>
               <p className="text-xl font-medium text-gray-900 dark:text-white">
-                {isUploading
-                  ? 'Uploading audio...'
-                  : isDragActive
-                    ? 'Drop your audio file here'
-                    : 'Drop your audio file here'}
+                {isCompressing
+                  ? 'Compressing audio...'
+                  : isUploading
+                    ? 'Uploading audio...'
+                    : isDragActive
+                      ? 'Drop your audio file here'
+                      : 'Drop your audio file here'}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                {isUploading ? '' : 'or '}
+                {isUploading || isCompressing ? '' : 'or '}
                 <span className="text-blue-600 dark:text-blue-400">
-                  {isUploading ? '' : 'browse files'}
+                  {isUploading || isCompressing ? '' : 'browse files'}
                 </span>
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                Supports MP3, WAV (large files supported)
+                Supports MP3, WAV (large files auto-compressed)
               </p>
-              {uploadStatus && (
+
+              {/* Compression Progress */}
+              {progress && (
+                <div className="mt-4">
+                  <p className="text-sm text-blue-600 dark:text-blue-400 mb-2">
+                    {progress.message}
+                  </p>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${progress.progress}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {progress.progress.toFixed(0)}%
+                  </p>
+                </div>
+              )}
+
+              {/* Upload Status */}
+              {uploadStatus && !progress && (
                 <p className="text-sm text-green-600 dark:text-green-400 mt-2 font-medium">
                   {uploadStatus}
                 </p>
