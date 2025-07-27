@@ -141,10 +141,6 @@ export default function Home() {
     }
 
     const showNotes = await response.json();
-    console.log('Received show notes from API:', showNotes);
-    console.log('Highlights from API:', showNotes.highlights);
-    console.log('Highlights type:', typeof showNotes.highlights);
-    console.log('Highlights isArray:', Array.isArray(showNotes.highlights));
     setResult(showNotes);
     setStep('complete');
   };
