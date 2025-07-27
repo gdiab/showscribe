@@ -1,9 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile } from 'fs/promises';
 import path from 'path';
-import { openaiClient, CostExceededError } from '@/lib/openai';
+import { CostExceededError } from '@/lib/openai';
 import * as Sentry from '@sentry/nextjs';
-import { del } from '@vercel/blob';
+
+// Helper functions for file analysis
+function estimateAudioDuration(fileSizeBytes: number, extension: string): number {
+  // Rough estimates based on typical bitrates
+  const sizeInMB = fileSizeBytes / (1024 * 1024);
+
+  if (extension === '.mp3') {
+    // MP3 typically 1MB per minute at standard quality
+    return Math.round(sizeInMB);
+  } else if (extension === '.wav') {
+    // WAV typically 10MB per minute (uncompressed)
+    return Math.round(sizeInMB / 10);
+  } else {
+    // Default estimate for other formats
+    return Math.round(sizeInMB * 0.8);
+  }
+}
+
+function estimateTranscriptionTime(durationMinutes: number): number {
+  // Based on observed OpenAI Whisper performance
+  // Roughly 2 seconds per minute of audio
+  return Math.round(durationMinutes * 2);
+}
 
 export async function POST(request: NextRequest) {
   console.log('=== BLOB UPLOAD API START ===');
@@ -59,52 +81,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('9. Starting OpenAI transcription');
-    // Import fs module for createReadStream
+    console.log('9. Analyzing file for transcription readiness');
+
+    // Get file duration and other metadata
+    const fileExtension = path.extname(filepath).toLowerCase();
+    const estimatedDurationMinutes = estimateAudioDuration(fileSize, fileExtension);
+    const estimatedTranscriptionTime = estimateTranscriptionTime(estimatedDurationMinutes);
+
+    // Clean up temporary file (keep blob for transcription step)
     const fs = await import('fs');
-
-    // Transcribe with enhanced OpenAI client
-    const { response: transcription, metrics } = await openaiClient.transcription({
-      file: fs.createReadStream(filepath),
-      model: 'whisper-1',
-      response_format: 'json',
-    });
-    console.log('10. Transcription completed, length:', transcription.text.length);
-
-    const transcriptionLatency = metrics.latencyMs;
-
-    // Clean up temporary files
     fs.unlinkSync(filepath);
     filepath = null;
-
-    // Clean up blob
-    console.log('11. Cleaning up blob');
-    try {
-      await del(blobUrl);
-      console.log('12. Blob cleaned up successfully');
-    } catch (blobError) {
-      console.warn('Failed to clean up blob:', blobError);
-    }
 
     const endTime = Date.now();
     const totalLatency = endTime - startTime;
 
-    // Log metrics
-    console.log(`Transcription completed:`, {
+    console.log('Upload and analysis completed:', {
       fileSize,
-      transcriptionLatency,
+      estimatedDurationMinutes,
+      estimatedTranscriptionTime,
       totalLatency,
-      transcriptionLength: transcription.text.length,
+      blobUrl,
     });
 
     return NextResponse.json({
-      transcript: transcription.text,
+      blobUrl: blobUrl,
+      fileInfo: {
+        size: fileSize,
+        format: fileExtension,
+        estimatedDurationMinutes,
+        estimatedTranscriptionTimeSeconds: estimatedTranscriptionTime,
+      },
       metadata: {
-        fileSize,
-        transcriptionLatency,
-        totalLatency,
-        transcriptionLength: transcription.text.length,
-        cost: metrics.costUSD,
+        uploadLatency: totalLatency,
+        ready: true,
       },
     });
   } catch (error) {
@@ -128,16 +138,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Clean up blob on error
-    if (blobUrl) {
-      try {
-        console.log('Cleaning up blob on error:', blobUrl);
-        await del(blobUrl);
-        console.log('Blob cleaned up successfully');
-      } catch (blobError) {
-        console.warn('Failed to clean up blob:', blobError);
-      }
-    }
+    // Note: We don't clean up blob on error anymore since it may be needed for transcription
+    // The blob will be cleaned up after successful transcription or can be cleaned up manually
 
     if (error instanceof CostExceededError) {
       Sentry.captureMessage(error.message, { level: 'warning' });
