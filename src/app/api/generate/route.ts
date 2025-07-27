@@ -136,14 +136,18 @@ export async function POST(request: NextRequest) {
 
     // Parse highlights (expecting JSON array)
     let highlights: string[] = [];
+    console.log('Raw highlights content:', highlightsResult.content);
     try {
       highlights = JSON.parse(highlightsResult.content);
-    } catch {
+      console.log('Successfully parsed highlights as JSON:', highlights);
+    } catch (error) {
+      console.log('Failed to parse highlights as JSON, using fallback. Error:', error);
       // Fallback: split by bullet points or newlines
       highlights = highlightsResult.content
         .split('\n')
         .filter((line: string) => line.trim().startsWith('-') || line.trim().startsWith('•'))
         .map((line: string) => line.trim().replace(/^[-•]\s*/, ''));
+      console.log('Fallback parsed highlights:', highlights);
     }
 
     const endTime = Date.now();
@@ -202,6 +206,9 @@ export async function POST(request: NextRequest) {
         cost: totalCost,
       },
     };
+
+    console.log('Final response highlights array:', highlights);
+    console.log('Highlights array length:', highlights.length);
 
     return NextResponse.json(response);
   } catch (error) {
