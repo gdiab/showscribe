@@ -8,6 +8,22 @@ import OutputCard from '@/components/OutputCard';
 import DownloadButton from '@/components/DownloadButton';
 import ThemeToggle from '@/components/ThemeToggle';
 
+interface FileInfo {
+  size: number;
+  format: string;
+  estimatedDurationMinutes: number;
+  estimatedTranscriptionTimeSeconds: number;
+}
+
+interface UploadResult {
+  blobUrl: string;
+  fileInfo: FileInfo;
+  metadata: {
+    uploadLatency: number;
+    ready: boolean;
+  };
+}
+
 interface ShowNotesResult {
   title: string;
   summary: string;
@@ -26,16 +42,19 @@ interface ShowNotesResult {
 }
 
 export default function Home() {
+  const [step, setStep] = useState<'upload' | 'transcribe' | 'generate' | 'complete'>('upload');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [result, setResult] = useState<ShowNotesResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleFileUpload = async (blobUrl: string) => {
     setIsProcessing(true);
     setError(null);
+    setStep('upload');
 
     try {
-      // Send blob URL for processing
+      // Step 1: Upload and analyze file
       const uploadResponse = await fetch('/api/upload', {
         method: 'POST',
         headers: {
@@ -49,10 +68,9 @@ export default function Home() {
         throw new Error(errorData.error || 'Upload failed');
       }
 
-      const { transcript } = await uploadResponse.json();
-
-      // Generate show notes
-      await generateShowNotes(transcript);
+      const uploadResult: UploadResult = await uploadResponse.json();
+      setUploadResult(uploadResult);
+      setStep('transcribe');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -63,8 +81,43 @@ export default function Home() {
   const handleTranscriptSubmit = async (transcript: string) => {
     setIsProcessing(true);
     setError(null);
+    setStep('generate');
 
     try {
+      await generateShowNotes(transcript);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleStartTranscription = async () => {
+    if (!uploadResult) return;
+
+    setIsProcessing(true);
+    setError(null);
+    setStep('transcribe');
+
+    try {
+      // Step 2: Transcribe the uploaded file
+      const transcribeResponse = await fetch('/api/transcribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ blobUrl: uploadResult.blobUrl }),
+      });
+
+      if (!transcribeResponse.ok) {
+        const errorData = await transcribeResponse.json();
+        throw new Error(errorData.error || 'Transcription failed');
+      }
+
+      const { transcript } = await transcribeResponse.json();
+      setStep('generate');
+
+      // Step 3: Generate show notes
       await generateShowNotes(transcript);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -89,6 +142,15 @@ export default function Home() {
 
     const showNotes = await response.json();
     setResult(showNotes);
+    setStep('complete');
+  };
+
+  const resetToStart = () => {
+    setStep('upload');
+    setIsProcessing(false);
+    setUploadResult(null);
+    setResult(null);
+    setError(null);
   };
 
   return (
@@ -117,7 +179,8 @@ export default function Home() {
 
         {/* Main Content */}
         <main className="max-w-4xl mx-auto">
-          {!result && !isProcessing && (
+          {/* Step 1: Upload */}
+          {step === 'upload' && (
             <div className="text-center mb-8">
               <Uploader
                 onUpload={handleFileUpload}
@@ -127,16 +190,64 @@ export default function Home() {
             </div>
           )}
 
+          {/* Step 2: File Analysis & Transcription */}
+          {step === 'transcribe' && uploadResult && (
+            <div className="max-w-2xl mx-auto">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                  File Ready for Transcription
+                </h2>
+
+                <div className="space-y-3 mb-6">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">File Size:</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {(uploadResult.fileInfo.size / 1024 / 1024).toFixed(1)}MB
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Format:</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {uploadResult.fileInfo.format.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Estimated Duration:</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      ~{uploadResult.fileInfo.estimatedDurationMinutes} minutes
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      Est. Transcription Time:
+                    </span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      ~{Math.ceil(uploadResult.fileInfo.estimatedTranscriptionTimeSeconds / 60)}{' '}
+                      minutes
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleStartTranscription}
+                  disabled={isProcessing}
+                  className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isProcessing ? 'Transcribing...' : 'Start Transcription'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Processing Spinner */}
           {isProcessing && <Spinner />}
 
+          {/* Error State */}
           {error && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-8">
               <p className="text-red-700 dark:text-red-400">{error}</p>
               <button
-                onClick={() => {
-                  setError(null);
-                  setResult(null);
-                }}
+                onClick={resetToStart}
                 className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline"
               >
                 Try again
@@ -169,7 +280,7 @@ export default function Home() {
 
               <div className="text-center mt-8">
                 <button
-                  onClick={() => setResult(null)}
+                  onClick={resetToStart}
                   className="text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   Generate New Show Notes
