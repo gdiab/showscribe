@@ -246,8 +246,6 @@ export async function POST(request: NextRequest) {
       socialCaptions,
       metadata: {
         totalLatency,
-        totalTokens,
-        cost: totalCost,
       },
     };
 

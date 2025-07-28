@@ -14,9 +14,9 @@ export async function POST(request: NextRequest) {
   console.log(`=== TRANSCRIPTION API START [${requestId}] ===`);
   let blobUrl: string | null = null;
   let filepath: string | null = null;
+  const startTime = Date.now();
 
   try {
-    const startTime = Date.now();
     console.log(`[${requestId}] Request started at: ${new Date(startTime).toISOString()}`);
 
     // Parse JSON body to get blob URL
@@ -97,9 +97,6 @@ export async function POST(request: NextRequest) {
         metrics = result.metrics;
         console.log(`[${requestId}] OpenAI API metrics:`, {
           costUSD: metrics.costUSD,
-          promptTokens: metrics.promptTokens || 'N/A',
-          completionTokens: metrics.completionTokens || 'N/A',
-          totalTokens: metrics.totalTokens || 'N/A',
           latencyMs: metrics.latencyMs,
         });
         break;
@@ -135,7 +132,7 @@ export async function POST(request: NextRequest) {
 
     // Clean up temporary file
     const cleanupStartTime = Date.now();
-    fs.unlinkSync(filepath);
+    await fs.promises.unlink(filepath);
     filepath = null;
     console.log(`[${requestId}] Temporary file cleaned up`);
 
@@ -166,6 +163,23 @@ export async function POST(request: NextRequest) {
       efficiency: `${(transcription.text.length / (totalLatency / 1000)).toFixed(0)} chars/sec`,
     });
 
+    // Log cost and usage data to Sentry for monitoring
+    Sentry.addBreadcrumb({
+      category: 'transcription',
+      message: 'Transcription completed successfully',
+      level: 'info',
+      data: {
+        requestId,
+        fileSize,
+        fileSizeMB: (fileSize / 1024 / 1024).toFixed(2),
+        transcriptionLatency,
+        totalLatency,
+        transcriptionLength: transcription.text.length,
+        costUSD: metrics.costUSD,
+        efficiency: `${(transcription.text.length / (totalLatency / 1000)).toFixed(0)} chars/sec`,
+      },
+    });
+
     return NextResponse.json({
       transcript: transcription.text,
       metadata: {
@@ -173,7 +187,6 @@ export async function POST(request: NextRequest) {
         transcriptionLatency,
         totalLatency,
         transcriptionLength: transcription.text.length,
-        cost: metrics.costUSD,
       },
     });
   } catch (error) {
@@ -192,7 +205,7 @@ export async function POST(request: NextRequest) {
         console.log(`[${requestId}] Cleaning up temporary file:`, filepath);
         const fs = await import('fs');
         if (fs.existsSync(filepath)) {
-          fs.unlinkSync(filepath);
+          await fs.promises.unlink(filepath);
           console.log(`[${requestId}] Temporary file cleaned up successfully`);
         }
       } catch (cleanupError) {

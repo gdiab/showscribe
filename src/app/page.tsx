@@ -318,8 +318,7 @@ export default function Home() {
 
               {/* Metadata */}
               <div className="text-center text-sm text-gray-500 dark:text-gray-400 mt-4">
-                Generated in {(result.metadata.totalLatency / 1000).toFixed(1)}s •
-                {result.metadata.totalTokens} tokens • ~${result.metadata.cost.toFixed(4)}
+                Generated in {(result.metadata.totalLatency / 1000).toFixed(1)}s
               </div>
             </div>
           )}
