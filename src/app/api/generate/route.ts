@@ -82,6 +82,10 @@ export async function POST(request: NextRequest) {
     // STAGE 1: Generate condensed summary from full transcript
     console.log('Stage 1: Generating condensed summary...');
     const condensedSummaryResult = await generateWithPrompt(condensedSummaryPrompt, transcript);
+    console.log(
+      'Condensed summary result:',
+      condensedSummaryResult.content.substring(0, 200) + '...'
+    );
 
     // STAGE 2A: Generate lightweight sections from condensed summary
     console.log('Stage 2A: Generating lightweight sections from summary...');
@@ -137,8 +141,21 @@ export async function POST(request: NextRequest) {
     // Parse highlights (expecting JSON array)
     let highlights: string[] = [];
     try {
-      highlights = JSON.parse(highlightsResult.content);
-    } catch {
+      // Clean up the highlights content by removing markdown code blocks
+      const cleanHighlights = highlightsResult.content
+        .replace(/```json\n?/g, '')
+        .replace(/```\n?/g, '')
+        .trim();
+
+      console.log('Raw highlights content:', highlightsResult.content);
+      console.log('Cleaned highlights content:', cleanHighlights);
+
+      highlights = JSON.parse(cleanHighlights);
+      console.log('Parsed highlights:', highlights);
+    } catch (error) {
+      console.error('Failed to parse highlights JSON:', error);
+      console.log('Falling back to text parsing');
+
       // Fallback: split by bullet points or newlines
       highlights = highlightsResult.content
         .split('\n')

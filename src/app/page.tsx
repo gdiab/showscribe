@@ -212,18 +212,9 @@ export default function Home() {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Estimated Duration:</span>
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      ~{uploadResult.fileInfo.estimatedDurationMinutes} minutes
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">
-                      Est. Transcription Time:
-                    </span>
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      ~{Math.ceil(uploadResult.fileInfo.estimatedTranscriptionTimeSeconds / 60)}{' '}
-                      minutes
+                    <span className="text-gray-600 dark:text-gray-400">Status:</span>
+                    <span className="font-medium text-green-600 dark:text-green-400">
+                      Ready for transcription
                     </span>
                   </div>
                 </div>
