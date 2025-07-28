@@ -51,16 +51,36 @@ export async function POST(request: NextRequest) {
     await writeFile(filepath, Buffer.from(blobBuffer));
     console.log('7. File ready for transcription');
 
-    // Start transcription (fresh timer starts here)
+    // Start transcription with retry logic
     console.log('8. Starting OpenAI Whisper transcription');
     const transcriptionStartTime = Date.now();
 
     const fs = await import('fs');
-    const { response: transcription, metrics } = await openaiClient.transcription({
-      file: fs.createReadStream(filepath),
-      model: 'whisper-1',
-      response_format: 'json',
-    });
+    let transcription, metrics;
+    let retryCount = 0;
+    const maxRetries = 2;
+
+    while (retryCount <= maxRetries) {
+      try {
+        console.log(`Transcription attempt ${retryCount + 1}/${maxRetries + 1}`);
+        const result = await openaiClient.transcription({
+          file: fs.createReadStream(filepath),
+          model: 'whisper-1',
+          response_format: 'json',
+        });
+        transcription = result.response;
+        metrics = result.metrics;
+        break;
+      } catch (error) {
+        retryCount++;
+        if (retryCount > maxRetries) {
+          throw error;
+        }
+        console.log(`Transcription attempt ${retryCount} failed, retrying...`);
+        // Wait 5 seconds before retry
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      }
+    }
 
     const transcriptionEndTime = Date.now();
     const transcriptionLatency = transcriptionEndTime - transcriptionStartTime;
