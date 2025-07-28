@@ -110,8 +110,20 @@ export default function Home() {
       });
 
       if (!transcribeResponse.ok) {
-        const errorData = await transcribeResponse.json();
-        throw new Error(errorData.error || 'Transcription failed');
+        // Handle timeout errors (504) and other non-JSON responses
+        if (transcribeResponse.status === 504) {
+          throw new Error(
+            'Transcription timed out. Large files may take longer to process. Please try again or use a smaller file.'
+          );
+        }
+
+        try {
+          const errorData = await transcribeResponse.json();
+          throw new Error(errorData.error || 'Transcription failed');
+        } catch {
+          // If we can't parse the error response, show a generic message
+          throw new Error(`Transcription failed (${transcribeResponse.status}). Please try again.`);
+        }
       }
 
       const { transcript } = await transcribeResponse.json();
@@ -136,8 +148,18 @@ export default function Home() {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Generation failed');
+      // Handle timeout errors and other non-JSON responses
+      if (response.status === 504) {
+        throw new Error('Show notes generation timed out. Please try again.');
+      }
+
+      try {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Generation failed');
+      } catch {
+        // If we can't parse the error response, show a generic message
+        throw new Error(`Generation failed (${response.status}). Please try again.`);
+      }
     }
 
     const showNotes = await response.json();
@@ -237,12 +259,23 @@ export default function Home() {
           {error && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-8">
               <p className="text-red-700 dark:text-red-400">{error}</p>
-              <button
-                onClick={resetToStart}
-                className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline"
-              >
-                Try again
-              </button>
+              <div className="mt-3 flex gap-4">
+                {uploadResult && (
+                  <button
+                    onClick={handleStartTranscription}
+                    disabled={isProcessing}
+                    className="text-sm bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isProcessing ? 'Retrying...' : 'Retry Transcription'}
+                  </button>
+                )}
+                <button
+                  onClick={resetToStart}
+                  className="text-sm text-red-600 dark:text-red-400 hover:underline"
+                >
+                  Start Over
+                </button>
+              </div>
             </div>
           )}
 
