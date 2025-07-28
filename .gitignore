@@ -48,3 +48,6 @@ next-env.d.ts
 
 # Claude Assistant Guidelines
 CLAUDE.md
+
+# Claude Code agents (local development tools)
+.claude/
