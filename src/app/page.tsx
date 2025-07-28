@@ -257,18 +257,23 @@ export default function Home() {
 
           {result && (
             <div className="space-y-6">
+              {/* Full-width Episode Title Header */}
+              <OutputCard title="Episode Title" content={result.title} />
+
+              {/* Two-column layout for remaining content */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <OutputCard title="Episode Title" content={result.title} />
                 <OutputCard title="Summary" content={result.summary} />
                 <OutputCard title="Key Highlights" content={result.highlights} type="list" />
-                <OutputCard title="Guest Bio" content={result.guestBio} />
               </div>
 
-              <OutputCard
-                title="Social Media Captions"
-                content={result.socialCaptions}
-                type="social"
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <OutputCard title="Guest Bio" content={result.guestBio} />
+                <OutputCard
+                  title="Social Media Captions"
+                  content={result.socialCaptions}
+                  type="social"
+                />
+              </div>
 
               <DownloadButton
                 title={result.title}
@@ -303,7 +308,7 @@ export default function Home() {
               How was your experience with ShowScribe?
             </p>
             <a
-              href="https://forms.google.com/create"
+              href="https://forms.gle/akuLqADKgLxYhJmU7"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center space-x-2 text-blue-600 dark:text-blue-400 hover:underline"
