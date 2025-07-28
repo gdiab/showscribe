@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
       guestBio = lightweightSectionsResult.content.substring(0, 200) + '...';
     }
 
-    // Parse highlights (expecting JSON array)
+    // Parse highlights (expecting JSON object with highlights property or JSON array)
     let highlights: string[] = [];
     try {
       // Clean up the highlights content by removing markdown code blocks
@@ -150,7 +150,9 @@ export async function POST(request: NextRequest) {
       console.log('Raw highlights content:', highlightsResult.content);
       console.log('Cleaned highlights content:', cleanHighlights);
 
-      highlights = JSON.parse(cleanHighlights);
+      const parsed = JSON.parse(cleanHighlights);
+      // Handle both object with highlights property and direct array
+      highlights = parsed.highlights || parsed;
       console.log('Parsed highlights:', highlights);
     } catch (error) {
       console.error('Failed to parse highlights JSON:', error);
