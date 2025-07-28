@@ -87,6 +87,35 @@ export async function POST(request: NextRequest) {
       condensedSummaryResult.content.substring(0, 200) + '...'
     );
 
+    // Clean up condensed summary in case it returns JSON instead of plain text
+    let cleanedSummary = condensedSummaryResult.content.trim();
+    try {
+      // Check if the response looks like JSON
+      if (cleanedSummary.startsWith('{') && cleanedSummary.endsWith('}')) {
+        console.log('Detected JSON in summary, converting to readable text');
+        const parsed = JSON.parse(cleanedSummary);
+
+        // Convert JSON structure to readable summary text
+        const parts = [];
+        if (parsed.main_topic) parts.push(`This episode focuses on ${parsed.main_topic}.`);
+        if (parsed.theme) parts.push(parsed.theme);
+        if (parsed.key_discussion_points && Array.isArray(parsed.key_discussion_points)) {
+          parts.push(
+            'Key discussion points include: ' + parsed.key_discussion_points.join(', ') + '.'
+          );
+        }
+        if (parsed.important_insights && Array.isArray(parsed.important_insights)) {
+          parts.push('Important insights: ' + parsed.important_insights.join(' '));
+        }
+
+        cleanedSummary = parts.join(' ');
+        console.log('Converted JSON to readable summary text');
+      }
+    } catch (parseError) {
+      console.log('Summary cleanup failed, using original content:', parseError);
+      // If JSON parsing fails, use original content
+    }
+
     // STAGE 2A: Generate lightweight sections from condensed summary
     console.log('Stage 2A: Generating lightweight sections from summary...');
     const lightweightSectionsResult = await generateWithPrompt(
@@ -211,7 +240,7 @@ export async function POST(request: NextRequest) {
 
     const response: ShowNotesResponse = {
       title: title.trim(),
-      summary: condensedSummaryResult.content.trim(),
+      summary: cleanedSummary,
       highlights,
       guestBio: guestBio.trim(),
       socialCaptions,
