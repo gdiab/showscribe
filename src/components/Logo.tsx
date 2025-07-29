@@ -18,7 +18,17 @@ export default function Logo() {
         alt="ShowScribe"
         width={300}
         height={48}
-        className="h-6 w-auto md:h-8"
+        className="w-auto"
+        style={{ height: '22px' }}
+        // Custom responsive height: 22px mobile, 28px desktop
+        onLoad={(e) => {
+          const img = e.target as HTMLImageElement;
+          const updateHeight = () => {
+            img.style.height = window.innerWidth >= 768 ? '28px' : '22px';
+          };
+          updateHeight();
+          window.addEventListener('resize', updateHeight);
+        }}
         priority
       />
     </div>
