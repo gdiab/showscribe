@@ -50,8 +50,14 @@
     "typescript": "^5"
   },
   "lint-staged": {
-    "*.{js,jsx,ts,tsx}": [
+    "src/**/*.{js,jsx,ts,tsx}": [
       "eslint --fix",
+      "prettier --write"
+    ],
+    "__tests__/**/*.{js,jsx,ts,tsx}": [
+      "prettier --write"
+    ],
+    "jest.config.js": [
       "prettier --write"
     ],
     "*.{json,md}": [

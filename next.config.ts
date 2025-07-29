@@ -2,6 +2,10 @@ import {withSentryConfig} from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  eslint: {
+    dirs: ['src'],
+    ignoreDuringBuilds: false,
+  },
   // Add development-only headers for cross-origin isolation (needed for SharedArrayBuffer)
   async headers() {
     if (process.env.NODE_ENV !== 'development') {
