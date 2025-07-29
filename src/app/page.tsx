@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Uploader from '@/components/Uploader';
 import Spinner from '@/components/Spinner';
 import OutputCard from '@/components/OutputCard';
@@ -41,10 +41,6 @@ interface ShowNotesResult {
 export default function Home() {
   const [step, setStep] = useState<'upload' | 'transcribe' | 'generate' | 'complete'>('upload');
 
-  // Force dark mode always
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-  }, []);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [result, setResult] = useState<ShowNotesResult | null>(null);
