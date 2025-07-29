@@ -2,7 +2,7 @@ import Image from 'next/image';
 
 export default function Logo() {
   return (
-    <div className="flex items-center gap-2 md:gap-3">
+    <div className="flex items-center gap-1.5 md:gap-3">
       {/* Icon - slightly larger to establish brand hierarchy */}
       <Image
         src="/logos/icononly_transparent_nobuffer.png"
@@ -18,7 +18,7 @@ export default function Logo() {
         alt="ShowScribe"
         width={300}
         height={48}
-        className="h-6 w-auto md:h-8"
+        className="h-5 w-auto md:h-6"
         priority
       />
     </div>

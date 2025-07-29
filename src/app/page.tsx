@@ -177,9 +177,11 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <header className="flex justify-between items-center mb-12">
-          <Logo />
-          <ThemeToggle />
+        <header className="mb-12">
+          <div className="max-w-4xl mx-auto flex justify-between items-center">
+            <Logo />
+            <ThemeToggle />
+          </div>
         </header>
 
         {/* Main Content */}
