@@ -18,9 +18,8 @@ export class FFmpegCompressionStrategy implements CompressionStrategy {
 
   async isAvailable(): Promise<boolean> {
     try {
-      // Check if we're in a browser environment with necessary APIs
+      // Check if we're in a browser environment
       if (typeof window === 'undefined') return false;
-      if (!window.SharedArrayBuffer) return false;
 
       // Only disable in development, enable in production/Vercel
       const isDev = process.env.NODE_ENV === 'development';
