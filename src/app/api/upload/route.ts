@@ -70,15 +70,17 @@ export async function POST(request: NextRequest) {
     await writeFile(filepath, Buffer.from(blobBuffer));
     console.log('8. File written successfully');
 
-    // Validate file size (25MB limit - OpenAI Whisper constraint)
-    const maxSize = 25 * 1024 * 1024; // 25MB
+    // Dynamic file size limit based on environment
+    // Production: 25MB (with compression enabled)
+    // Development: 100MB (compression may be disabled for debugging)
+    const isProduction = process.env.NODE_ENV === 'production';
+    const maxSize = isProduction ? 25 * 1024 * 1024 : 100 * 1024 * 1024; // 25MB prod, 100MB dev
+
     if (fileSize > maxSize) {
-      return NextResponse.json(
-        {
-          error: `File too large: ${(fileSize / 1024 / 1024).toFixed(2)}MB. Maximum: 25MB. Please compress the file before uploading.`,
-        },
-        { status: 400 }
-      );
+      const maxSizeMB = Math.round(maxSize / 1024 / 1024);
+      const userMessage = `File too large: ${(fileSize / 1024 / 1024).toFixed(2)}MB. Maximum: ${maxSizeMB}MB. Please compress the file before uploading.`;
+
+      return NextResponse.json({ error: userMessage }, { status: 400 });
     }
 
     console.log('9. Analyzing file for transcription readiness');
