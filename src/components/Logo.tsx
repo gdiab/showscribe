@@ -50,9 +50,9 @@ export default function Logo() {
             priority
           />
         ) : (
-          // In light mode, use grayscale version for better contrast
+          // In light mode, use transparent version to avoid dark background
           <Image
-            src="/logos/grayscale_nobuffer.png"
+            src="/logos/grayscale_transparent_nobuffer.png"
             alt="ShowScribe"
             width={300}
             height={48}
