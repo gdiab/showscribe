@@ -19,12 +19,12 @@ export default function Logo() {
         width={300}
         height={48}
         className="w-auto"
-        style={{ height: '22px' }}
-        // Custom responsive height: 22px mobile, 28px desktop
+        style={{ height: '26px' }}
+        // Custom responsive height: 26px mobile, 30px desktop
         onLoad={(e) => {
           const img = e.target as HTMLImageElement;
           const updateHeight = () => {
-            img.style.height = window.innerWidth >= 768 ? '28px' : '22px';
+            img.style.height = window.innerWidth >= 768 ? '30px' : '26px';
           };
           updateHeight();
           window.addEventListener('resize', updateHeight);
