@@ -20,8 +20,6 @@ interface ShowNotesResponse {
   };
   metadata: {
     totalLatency: number;
-    totalTokens: number;
-    cost: number;
   };
 }
 

@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import Uploader from '@/components/Uploader';
 import Spinner from '@/components/Spinner';
 import OutputCard from '@/components/OutputCard';
 import DownloadButton from '@/components/DownloadButton';
 import ThemeToggle from '@/components/ThemeToggle';
+import Logo from '@/components/Logo';
 
 interface FileInfo {
   size: number;
@@ -36,8 +36,6 @@ interface ShowNotesResult {
   };
   metadata: {
     totalLatency: number;
-    totalTokens: number;
-    cost: number;
   };
 }
 
@@ -180,22 +178,7 @@ export default function Home() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <header className="flex justify-between items-center mb-12">
-          <div className="flex items-center gap-4">
-            <Image
-              src="/logos/icononly_transparent_nobuffer.png"
-              alt="ShowScribe Icon"
-              width={64}
-              height={64}
-              className="h-16 w-auto"
-            />
-            <Image
-              src="/logos/textonly_nobuffer.png"
-              alt="ShowScribe"
-              width={300}
-              height={48}
-              className="h-8 w-auto"
-            />
-          </div>
+          <Logo />
           <ThemeToggle />
         </header>
 
