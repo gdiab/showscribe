@@ -1,11 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Uploader from '@/components/Uploader';
 import Spinner from '@/components/Spinner';
 import OutputCard from '@/components/OutputCard';
 import DownloadButton from '@/components/DownloadButton';
-import ThemeToggle from '@/components/ThemeToggle';
 import Logo from '@/components/Logo';
 
 interface FileInfo {
@@ -41,6 +40,11 @@ interface ShowNotesResult {
 
 export default function Home() {
   const [step, setStep] = useState<'upload' | 'transcribe' | 'generate' | 'complete'>('upload');
+
+  // Force dark mode always
+  useEffect(() => {
+    document.documentElement.classList.add('dark');
+  }, []);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [result, setResult] = useState<ShowNotesResult | null>(null);
@@ -178,9 +182,8 @@ export default function Home() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <header className="mb-12">
-          <div className="max-w-4xl mx-auto flex justify-between items-center">
+          <div className="max-w-4xl mx-auto flex justify-center items-center">
             <Logo />
-            <ThemeToggle />
           </div>
         </header>
 
