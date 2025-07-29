@@ -2,7 +2,32 @@ import {withSentryConfig} from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  eslint: {
+    dirs: ['src'],
+    ignoreDuringBuilds: false,
+  },
+  // Add development-only headers for cross-origin isolation (needed for SharedArrayBuffer)
+  async headers() {
+    if (process.env.NODE_ENV !== 'development') {
+      return [];
+    }
+    
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Cross-Origin-Embedder-Policy',
+            value: 'require-corp',
+          },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin',
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default withSentryConfig(nextConfig, {
