@@ -18,7 +18,7 @@ export default function Logo() {
         alt="ShowScribe"
         width={300}
         height={48}
-        className="h-5 w-auto md:h-6"
+        className="h-5 w-auto md:h-7"
         priority
       />
     </div>
