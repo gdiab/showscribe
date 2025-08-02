@@ -26,3 +26,94 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Force dark mode styles - Main containers */
+html.dark .bg-gray-50,
+html.dark .min-h-screen {
+  background-color: rgb(15 23 42) !important; /* slate-900 - dark blue-gray */
+}
+
+/* Tab container styling to match reference */
+html.dark .bg-gray-100 {
+  background-color: rgb(30 41 59) !important; /* slate-800 - darker tab container */
+  border: 1px solid rgb(51 65 85) !important; /* slate-700 - subtle border */
+}
+
+/* Active tab styling */
+html.dark button.bg-white.dark\:bg-gray-700 {
+  background-color: rgb(51 65 85) !important; /* slate-700 - active tab */
+  color: rgb(255 255 255) !important;
+  border: none !important;
+}
+
+/* Inactive tab styling */
+html.dark button:not(.bg-white):not(.text-blue-600),
+html.dark .text-gray-600 {
+  background-color: transparent !important;
+  color: rgb(156 163 175) !important; /* gray-400 - inactive tab text */
+}
+
+/* Force dark mode styles for buttons with proper contrast colors */
+html.dark button.bg-blue-600,
+html.dark button[class*="bg-blue-600"],
+html.dark .bg-blue-600 {
+  background-color: rgb(59 130 246) !important; /* blue-500 - brighter blue */
+  color: rgb(255 255 255) !important;
+  border: none !important;
+}
+
+html.dark button.bg-blue-600:hover:not(:disabled),
+html.dark button[class*="bg-blue-600"]:hover:not(:disabled),
+html.dark .bg-blue-600:hover:not(:disabled) {
+  background-color: rgb(37 99 235) !important; /* blue-600 on hover */
+}
+
+/* More specific selector for Generate Show Notes button */
+html.dark button[class*="bg-blue-600"][class*="py-3"] {
+  background-color: rgb(59 130 246) !important; /* blue-500 - brighter blue */
+  color: rgb(255 255 255) !important;
+  border: 1px solid rgb(59 130 246) !important;
+  border-radius: 0.5rem !important;
+}
+
+/* Disabled button styling - still looks like a button but muted */
+html.dark button:disabled.bg-blue-600,
+html.dark button:disabled[class*="bg-blue-600"] {
+  background-color: rgb(59 130 246) !important; /* still blue but will have opacity */
+  color: rgb(255 255 255) !important;
+  border: none !important;
+}
+
+html.dark textarea {
+  background-color: rgb(30 41 59) !important; /* slate-800 */
+  color: rgb(255 255 255) !important;
+  border-color: rgb(71 85 105) !important; /* slate-600 */
+}
+
+/* Upload area border fix */
+html.dark .border-gray-300,
+html.dark .border-2.border-dashed {
+  border-color: rgb(71 85 105) !important; /* slate-600 - remove white border */
+}
+
+/* Override any remaining white backgrounds in dark mode */
+html.dark .bg-white:not(button) {
+  background-color: rgb(30 41 59) !important; /* slate-800 */
+}
+
+html.dark .text-gray-900 {
+  color: rgb(255 255 255) !important;
+}
+
+/* Footer border styling to match dark theme */
+html.dark .border-gray-200 {
+  border-color: rgb(55 65 81) !important; /* gray-700 - darker footer border */
+}
+
+/* Ensure body and main areas are dark */
+html.dark,
+html.dark body,
+html.dark main {
+  background-color: rgb(15 23 42) !important; /* slate-900 */
+  color: rgb(248 250 252) !important; /* slate-50 */
+}

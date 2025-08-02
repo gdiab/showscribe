@@ -87,27 +87,80 @@ export async function POST(request: NextRequest) {
 
     // Clean up condensed summary in case it returns JSON instead of plain text
     let cleanedSummary = condensedSummaryResult.content.trim();
+
+    // Check if response is too short (likely incomplete)
+    if (cleanedSummary.length < 100) {
+      console.warn('Summary response too short:', cleanedSummary.length, 'characters');
+      console.log('Raw content:', cleanedSummary);
+      // Use a fallback summary
+      cleanedSummary = 'Summary generation encountered an issue. Please try again.';
+    }
+
     try {
       // Check if the response looks like JSON
       if (cleanedSummary.startsWith('{') && cleanedSummary.endsWith('}')) {
         console.log('Detected JSON in summary, converting to readable text');
-        const parsed = JSON.parse(cleanedSummary);
 
-        // Convert JSON structure to readable summary text
-        const parts = [];
-        if (parsed.main_topic) parts.push(`This episode focuses on ${parsed.main_topic}.`);
-        if (parsed.theme) parts.push(parsed.theme);
-        if (parsed.key_discussion_points && Array.isArray(parsed.key_discussion_points)) {
-          parts.push(
-            'Key discussion points include: ' + parsed.key_discussion_points.join(', ') + '.'
-          );
-        }
-        if (parsed.important_insights && Array.isArray(parsed.important_insights)) {
-          parts.push('Important insights: ' + parsed.important_insights.join(' '));
+        // Try to fix common malformed JSON patterns
+        let jsonToFix = cleanedSummary;
+
+        // Fix pattern like {"title": "summary":"content"} to {"summary":"content"}
+        if (jsonToFix.includes('"title": "summary":')) {
+          jsonToFix = jsonToFix.replace('"title": "summary":', '"summary":');
+          console.log('Fixed malformed JSON pattern: "title": "summary":');
         }
 
-        cleanedSummary = parts.join(' ');
-        console.log('Converted JSON to readable summary text');
+        // Fix pattern like {"title": "podcast_summary"} to use the full transcript
+        if (
+          jsonToFix === '{"title": "podcast_summary"}' ||
+          jsonToFix.includes('"title": "podcast_summary"')
+        ) {
+          console.log('Detected incomplete JSON response, using fallback');
+          cleanedSummary =
+            'This podcast episode explores important topics and insights. Please regenerate for a complete summary.';
+        } else {
+          const parsed = JSON.parse(jsonToFix);
+
+          // Convert JSON structure to readable summary text
+          const parts = [];
+
+          // Check for different possible JSON structures
+          if (parsed.episode_summary) {
+            const summary = parsed.episode_summary;
+            if (summary.main_topic) parts.push(`This episode focuses on ${summary.main_topic}.`);
+            if (summary.theme) parts.push(summary.theme);
+            if (summary.key_discussion_points && Array.isArray(summary.key_discussion_points)) {
+              parts.push(
+                'Key discussion points include: ' + summary.key_discussion_points.join(', ') + '.'
+              );
+            }
+            if (summary.important_insights && Array.isArray(summary.important_insights)) {
+              parts.push('Important insights: ' + summary.important_insights.join(' '));
+            }
+          } else {
+            // Fallback to direct properties
+            if (parsed.main_topic) parts.push(`This episode focuses on ${parsed.main_topic}.`);
+            if (parsed.theme) parts.push(parsed.theme);
+            if (parsed.key_discussion_points && Array.isArray(parsed.key_discussion_points)) {
+              parts.push(
+                'Key discussion points include: ' + parsed.key_discussion_points.join(', ') + '.'
+              );
+            }
+            if (parsed.important_insights && Array.isArray(parsed.important_insights)) {
+              parts.push('Important insights: ' + parsed.important_insights.join(' '));
+            }
+          }
+
+          cleanedSummary = parts.join(' ');
+
+          // If we still have an empty summary, use a fallback
+          if (!cleanedSummary || cleanedSummary.trim() === '') {
+            console.log('Warning: JSON parsing resulted in empty summary');
+            cleanedSummary =
+              'Summary could not be extracted from the response. Please try regenerating.';
+          }
+          console.log('Converted JSON to readable summary text');
+        }
       }
     } catch (parseError) {
       console.log('Summary cleanup failed, using original content:', parseError);

@@ -198,7 +198,7 @@ export default function Uploader({ onUpload, onTranscriptSubmit, isProcessing }:
             value={transcript}
             onChange={(e) => setTranscript(e.target.value)}
             placeholder="Paste your podcast transcript here..."
-            className="w-full h-48 p-4 border border-gray-300 dark:border-gray-600 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white"
+            className="w-full h-48 p-4 border border-gray-300 dark:border-gray-600 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
             disabled={isProcessing}
           />
           <button
