@@ -26,6 +26,8 @@ Return your response as a JSON object with this exact structure:
 - 5-12 words maximum
 - Include the main topic or key insight
 - Avoid generic phrases like "Episode #" or "Interview with"
+- **DO NOT include podcast names or show names in the title**
+- **Focus only on the episode content, not the podcast branding**
 - Make it compelling and specific
 
 ### Guest Bio
